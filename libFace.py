@@ -2,12 +2,63 @@ import time, datetime
 import imutils
 import cv2
 import numpy as np
-import serial
+import serial,io
 import socket  # Import socket module
+import picamera
+from picamera.array import PiRGBArray
+
+class PICam:
+    def __init__(self, videofile="", size=(1920, 1080), rotate=0, vflip=False, hflip=False):
+        self.camsize = size
+        self.fps = 0
+        self.frameID = 0
+        self.start_time = 0
+
+        if(len(videofile)>0):
+            self.cam = cv2.VideoCapture(videofile)
+            self.playvideo = True
+        else:
+            self.cam = picamera.PiCamera()
+            self.size = size
+            self.rawCapture = PiRGBArray(self.cam)
+            self.cam.resolution = size
+            self.cam.brightness = 60
+            self.cam.vflip = vflip
+            self.cam.hflip = hflip
+            self.cam.rotation = rotate
+            self.playvideo = False
+
+    def working(self):
+        return True
+
+    def getFrame(self):
+        camera = self.cam
+        #camera.framerate = 32
+        rawCapture = self.rawCapture
+        rawCapture.truncate(0)
+        #time.sleep(0.1)
+        camera.capture(rawCapture, format="bgr")
+        image = rawCapture.array
+        image = image[:,:,::-1]
+        print(image.shape)
+
+        if(self.frameID == 0):
+            self.start_time = time.time()
+        else:
+            self.fps = self.frameID / (time.time() - self.start_time)
+
+        self.frameID += 1
+
+
+        return True, image
+
 
 class webCam:
     def __init__(self, id=0, videofile="", size=(1920, 1080)):
         self.camsize = size
+        self.fps = 0
+        self.frameID = 0
+        self.start_time = 0
 
         if(len(videofile)>0):
             self.cam = cv2.VideoCapture(videofile)
@@ -38,6 +89,7 @@ class webCam:
     def getFrame(self, rotate=0, vflip=False, hflip=False, resize=None):
         webcam = self.cam
         hasFrame, frame = webcam.read()
+        self.fps = webcam.get(cv2.CAP_PROP_FPS)
         if(frame is not None):
             frame = cv2.resize(frame, self.camsize)
 
@@ -50,6 +102,13 @@ class webCam:
                 frame = imutils.rotate_bound(frame, rotate)
             if(resize is not None):
                 frame = imutils.resize(frame, size=resize)
+
+            if(self.frameID == 0):
+                self.start_time = time.time()
+            else:
+                self.fps = self.frameID / (time.time() - self.start_time)
+
+            self.frameID += 1
 
         else:
             hasFrame = False
@@ -68,7 +127,7 @@ class Desktop:
         else:
             cv2.namedWindow(winName, cv2.WINDOW_NORMAL) 
 
-        cv2.setMouseCallback(winName, self.mouseClick)
+        #cv2.setMouseCallback(winName, self.mouseClick)
 
         self.bg = cv2.imread(bg)
         self.winname = winName
@@ -77,17 +136,21 @@ class Desktop:
         #self.btn_poweroff = [ (cv2.imread("images/btn_poweroff2.png"), (700,373)), (cv2.imread("images/btn_poweroff.png"), (700,373)) ]
         self.xy = (0,0)
         self.action = None
+        self.frame = (None, time.time())
+        self.faceimg = None
 
-    def display(self, frame=None, frameSize=(430,323), frameXY=(28, 90)):
+    def display(self, frame=None, faceimg=None, frameSize=(430,323), frameXY=(28, 90)):
         bg2 = self.bg.copy()
         frame = cv2.resize(frame, frameSize) 
         y_point, x_point = frameXY[1], frameXY[0]
         frame_shape = frame.shape
         bg2[y_point:y_point+frame_shape[0], x_point:x_point+frame_shape[1]] = frame
 
-        #if(detected[0] is not None):
-        #    imgDetected = cv2.copyMakeBorder(detected[0], 6, 6, 6, 6, cv2.BORDER_CONSTANT, value=(255,255,255))
-        #    bg2[90:90+imgDetected.shape[0], 30:30+imgDetected.shape[1]] = imgDetected
+        if(faceimg is not None):
+            faceimg = cv2.resize(faceimg, (200,250))
+            #print(faceimg.shape)
+            #imgDetected = cv2.copyMakeBorder(detected[0], 6, 6, 6, 6, cv2.BORDER_CONSTANT, value=(255,255,255))
+            bg2[45:45+faceimg.shape[0], 540:540+faceimg.shape[1]] = faceimg
 
 
         return bg2
