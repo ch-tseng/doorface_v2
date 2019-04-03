@@ -40,7 +40,7 @@ class PICam:
         camera.capture(rawCapture, format="bgr")
         image = rawCapture.array
         image = image[:,:,::-1]
-        print(image.shape)
+        #print(image.shape)
 
         if(self.frameID == 0):
             self.start_time = time.time()

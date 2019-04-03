@@ -10,9 +10,10 @@ import imutils
 from libFace import webCam
 from libFace import Desktop
 from libFace import PICam
-from mtcnn.mtcnn import MTCNN
+#from mtcnn.mtcnn import MTCNN
 
 cameraType = 0  #0: PICamera. 1:Webcam
+face_detect_type = 0  #0:cascade, 1:dlib, 2:MTCNN
 
 webcam_id = 0
 webcam_size = (640, 480)
@@ -21,6 +22,7 @@ webcam_flip_vertical = False
 webcam_flip_horizontal = False
 
 picam_size = (1296, 972)
+#picam_size = (640, 480)
 picam_rotate = 180
 picam_flip_vertical = False
 picam_flip_horizontal = False
@@ -38,6 +40,13 @@ write_video = False
 video_file = "output/door_in_"+str(time.time())+".avi"
 
 #-----------------------------------------------------------------------------
+
+if(face_detect_type == 2):
+    from mtcnn.mtcnn import MTCNN
+    detector = MTCNN()
+elif(face_detect_type == 0):
+    face_cascade = cv2.CascadeClassifier('resources/haarcascade_frontalface_default.xml')
+
 def init_env():
     '''
     if not os.path.exists(video_out):
@@ -56,12 +65,18 @@ def init_env():
 
     print("init...")
 
-def box_face(img, box, bcolor, bbold):
-    x1, y1 = int(box[0]), int(box[1])
-    x2, y2 = x1+int(box[2]), y1+int(box[3])
+def box_face(img, boxes, bcolor, bbold):
+    i, maxi, lastArea = 0, 0, 0
+    for (x,y,w,h) in boxes:
+        if(w*h > lastArea):
+            maxi = i
 
-    cv2.rectangle(img, (x1, y1), (x2, y2), bcolor, bbold)
+    x1, y1 = int(boxes[maxi][0]), int(boxes[maxi][1])
+    x2, y2 = x1+int(boxes[maxi][2]), y1+int(boxes[maxi][3])
+
+    #cv2.rectangle(img, (x1, y1), (x2, y2), bcolor, bbold)
     facearea = img[y1:y2, x1:x2]
+    print("Face size:", facearea.shape, "FPS:", CAMERA.fps)
 
     return img, facearea
 
@@ -81,16 +96,26 @@ def detectFace(stopping):
         if(img is not None):
             #print("TEST:", time.time() - img_time)
             if(time.time() - img_time < interval_face_detect):
-                mtcnndata = detector.detect_faces(img)
+                if(face_detect_type == 2):
+                    mtcnndata = detector.detect_faces(img)
+                    face_img = None
+                    #print(mtcnndata)
+                    mtcnnbox = []
+                    if(len(mtcnndata)>0):
+                        for facedata in mtcnndata:
+                            mtcnnbox.append(facedata['box'])
 
-                face_img = None
-                #print(mtcnndata)
-                if(len(mtcnndata)>0):
-                    for facedata in mtcnndata:
-                        img, face_img = box_face(img, facedata['box'], (0,255,0), 1)
+                        img, face_img = box_face(img, mtcnnbox, (0,255,0), 1)
+                        DESKTOP.faceimg = face_img
 
-                    DESKTOP.faceimg = face_img
-                    #DESKTOP.img = img
+                if(face_detect_type == 0):
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+                    print(faces)
+                    if(len(faces)>0):
+                        img, face_img = box_face(img, faces, (0,255,0), 1)
+
+                        DESKTOP.faceimg = face_img
 
 #-----------------------------------------------------------------------------
 
@@ -103,7 +128,6 @@ init_env()
 stopping = []  #for threadding to run and stop
 thread_facedetect = Thread(target=detectFace, args=(stopping,) )
 
-detector = MTCNN()
 DESKTOP = Desktop(bg_path, cv2_win_name, fullscreen=full_screen)
 
 if(cameraType==1):
@@ -157,4 +181,4 @@ if __name__ == '__main__':
         #outDemo.write(img_desktop)
         cv2.waitKey(1)
 
-        print("FPS:", CAMERA.fps)
+        #print("FPS:", CAMERA.fps)
