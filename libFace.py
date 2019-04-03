@@ -147,11 +147,13 @@ class Desktop:
         bg2[y_point:y_point+frame_shape[0], x_point:x_point+frame_shape[1]] = frame
 
         if(faceimg is not None):
-            faceimg = cv2.resize(faceimg, (200,250))
-            #print(faceimg.shape)
-            #imgDetected = cv2.copyMakeBorder(detected[0], 6, 6, 6, 6, cv2.BORDER_CONSTANT, value=(255,255,255))
-            bg2[45:45+faceimg.shape[0], 540:540+faceimg.shape[1]] = faceimg
-
+            try:
+                faceimg = cv2.resize(faceimg, (200,250))
+                #imgDetected = cv2.copyMakeBorder(detected[0], 6, 6, 6, 6, cv2.BORDER_CONSTANT, value=(255,255,255))
+                bg2[45:45+faceimg.shape[0], 540:540+faceimg.shape[1]] = faceimg
+            except:
+                print("Error:", disktop.display())
+                pass
 
         return bg2
 
